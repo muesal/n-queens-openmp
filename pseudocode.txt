@@ -1,0 +1,27 @@
+
+int queen( int n):
+    a <- int[n] // array with position of queen in each row
+    solutions <- 0
+    for i in {0, 1, ...,  n-1}:
+        a[0] <- i
+        solutions += queens_rec(n, a, 1)
+    return solutions
+
+int queens_rec(int n, int[] a, int i):
+    if i = 1: return 1 // base case
+
+    solutions <- 0
+    for j in {0, 1, ...,  n-1}:
+        a[i] <- j
+        if (is_valid(a)): solutions += queen_rec(n, a, i+1)
+
+
+
+
+// initialize queue and everything...
+a <- dequeue() // critical section
+for i in {0, 1, ...,  n-1}:
+    a_new = a.append(i)
+    if is_valid(a_new):
+        if complete_solution(a_n): solutions++ // critical section
+        else: enqueue(a_new) // critical section
