@@ -25,7 +25,7 @@ int queens(int n);
  * @param i: next row to set queen in
  * @return int, the number of solutions reachable from given a
  **/
-void queens_rec(int n, int a[], int row, int *solutions);
+void queens_rec(int n, int q_pos[], int row, int *solutions);
 
 
 /**
@@ -38,7 +38,7 @@ void queens_rec(int n, int a[], int row, int *solutions);
  * @param i: row of last queen that was set
  * @return boolean whether the (part-)solution is valid
  **/
-bool is_valid(int a[], int row);
+bool is_valid(int q_pos[], int row);
 
 
 int main(int argc, char **argv) {
@@ -54,19 +54,18 @@ int main(int argc, char **argv) {
 int queens(int n) {
 
     int solutions = 0;
-    int *a = (int *) malloc(n * sizeof(int));
+    int *q_pos = (int *) malloc(n * sizeof(int));
 
     for (int col = 0; col < n; col++) {
         // set queen in first row to column col
-        a[0] = col;
-        queens_rec(n, a, 1, &solutions);
+        q_pos[0] = col;
+        queens_rec(n, q_pos, 1, &solutions);
     }
 
     return solutions;
 }
 
-// TODO: n-row instead of n and row; only one value. base case if 0
-void queens_rec(int n, int a[], int row, int *solutions) {
+void queens_rec(int n, int q_pos[], int row, int *solutions) {
     
     if (row >= n){
         // base case: return 1
@@ -74,19 +73,19 @@ void queens_rec(int n, int a[], int row, int *solutions) {
         (*solutions)++;
     } else {
         for (int col = 0; col < n; col++) {
-            a[row] = col;
+            q_pos[row] = col;
 
-            if (is_valid(a, row))
-                queens_rec(n, a, row + 1, solutions);
+            if (is_valid(q_pos, row))
+                queens_rec(n, q_pos, row + 1, solutions);
         }
     }
 }
 
-bool is_valid(int a[], int row) {
+bool is_valid(int q_pos[], int row) {
     for (int r = 0; r < row; r++) {      // iterate over all previous rows
-        if (a[r] == a[row]               // same column
-            || r - a[r] == row - a[row]  // same diagonally
-            || r + a[r] == row + a[row]) // same diagonally
+        if (q_pos[r] == q_pos[row]               // same column
+            || r - q_pos[r] == row - q_pos[row]  // same diagonally
+            || r + q_pos[r] == row + q_pos[row]) // same diagonally
             return false;
     }
 
