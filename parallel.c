@@ -3,28 +3,25 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct Node{
+struct Board{
     int last;   // index of the last queen that was set (len(pos)-1)
     int pos[];  // list of positions of queens
 };
 
+// TODO: add structs for Nodes and stacks
 
 /**
- * Method that creates a new Node from the given one and sets
+ * Method that creates a new Board from the given one and sets
  * a new queen at the given row.
  * 
- * @param q_pos Node that should be copied
+ * @param board Board that should be copied
  * @param col position of new queen that should be appended
- * @return struct Node* 
+ * @return struct Board* 
  */
-void append(struct Node * q_pos, int col, struct Node *new_q_pos);
-
-void Node_delete(struct Node *node) {
-    free(node);
-}
+void append(struct Board * board, int col, struct Board *new_board);
 
 
-// TODO: create struct for the queue 
+// TODO: add methods for the node and the stack
 
 /**
  * Method that starts the recursive tree search by setting 
@@ -47,10 +44,10 @@ int queens(int n);
  * @param i: row of last queen that was set
  * @return boolean whether the (part-)solution is valid
  */
-bool is_valid(struct Node *q_pos);
+bool is_valid(struct Board *board);
 
 // TODO: Remove
-void queens_rec(int n, struct Node *q_pos, int *solutions);
+void queens_rec(int n, struct Board *board, int *solutions);
 
 
 int main(int argc, char **argv) {
@@ -64,39 +61,48 @@ int main(int argc, char **argv) {
 }
 
 
+/*
+Methods for the parallel tree search
+*/
+
 int queens(int n) {
 
     int solutions = 0;
 
-    struct Node *q_pos = (struct Node *) calloc(2, sizeof(int));
+    // TODO: initialise stack
 
+    // TODO: parallel for loop
     for (int col = 0; col < n; col++) {
         // set queen in first row to column col
-        q_pos->pos[0] = col;
-        q_pos->last = 0;
-        queens_rec(n, q_pos, &solutions);
+        struct Board *board = (struct Board *) calloc(2, sizeof(int));
+        board->pos[0] = col;
+        board->last = 0;
+        // TODO: add to stack instead. 
+        queens_rec(n, board, &solutions);
+        free(board);
     }
 
-    Node_delete(q_pos);
+    // TODO: call function or implement here: get thing from stack, till all stacks are empty
 
     return solutions;
 }
 
+
 // TODO: remove
-void queens_rec(int n, struct Node *q_pos, int *solutions) {
+void queens_rec(int n, struct Board *board, int *solutions) {
     
-    if (q_pos->last >= n-1){
+    if (board->last >= n-1){
         // base case: return 1
         // noo need to validate since only valid solutions are passed on
         (*solutions)++;
     } else {
-        struct Node *new_pos = (struct Node *) calloc((q_pos->last) + 3, sizeof(int));
+        struct Board *new_pos = (struct Board *) calloc((board->last) + 3, sizeof(int));
 
         for (int col = 0; col < n; col++) {
-            append(q_pos, col, new_pos);
+            append(board, col, new_pos);
 
             // printf("%d    ", col);
-            // for (int row = 0; row < (q_pos->last) + 2; row++) {
+            // for (int row = 0; row < (board->last) + 2; row++) {
             //     printf("%d ", new_pos->pos[row]);
             // }
             // printf("\n");
@@ -105,16 +111,16 @@ void queens_rec(int n, struct Node *q_pos, int *solutions) {
                 queens_rec(n, new_pos, solutions);
         }
 
-        Node_delete(new_pos);
+        free(new_pos);
     }
 }
 
-bool is_valid(struct Node *q_pos) {
-    int last = q_pos->last;
+bool is_valid(struct Board *board) {
+    int last = board->last;
     for (int r = 0; r < last; r++) {       // iterate over all previous rows
-        if (q_pos->pos[r] == q_pos->pos[last]                // same column
-            || r - q_pos->pos[r] == last - q_pos->pos[last]  // same diagonal
-            || r + q_pos->pos[r] == last + q_pos->pos[last]) // same diagonal
+        if (board->pos[r] == board->pos[last]                // same column
+            || r - board->pos[r] == last - board->pos[last]  // same diagonal
+            || r + board->pos[r] == last + board->pos[last]) // same diagonal
             return false;
     }
 
@@ -122,13 +128,22 @@ bool is_valid(struct Node *q_pos) {
 }
 
 
-void append(struct Node *q_pos, int col, struct Node *new_q_pos) {
-    int last = q_pos->last;
+/*
+Methods for the Boards
+*/
+
+void append(struct Board *board, int col, struct Board *new_board) {
+    int last = board->last;
 
     for (int row = 0; row <= last; row++)
-        new_q_pos->pos[row] = q_pos->pos[row];    
+        new_board->pos[row] = board->pos[row];    
 
-    new_q_pos->pos[last + 1] = col;    
-    new_q_pos->last = last + 1;
+    new_board->pos[last + 1] = col;    
+    new_board->last = last + 1;
 }
+
+
+/*
+Methods for the Stack
+*/
 
