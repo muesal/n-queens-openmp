@@ -75,6 +75,12 @@ void queens_rec(int n, int q_pos[], int row, int *solutions) {
         for (int col = 0; col < n; col++) {
             q_pos[row] = col;
 
+            // printf("%d    ", col);
+            // for (int i = 0; i < row + 1; i++) {
+            //     printf("%d ", q_pos[i]);
+            // }
+            // printf("\n");
+
             if (is_valid(q_pos, row))
                 queens_rec(n, q_pos, row + 1, solutions);
         }
@@ -84,8 +90,8 @@ void queens_rec(int n, int q_pos[], int row, int *solutions) {
 bool is_valid(int q_pos[], int row) {
     for (int r = 0; r < row; r++) {      // iterate over all previous rows
         if (q_pos[r] == q_pos[row]               // same column
-            || r - q_pos[r] == row - q_pos[row]  // same diagonally
-            || r + q_pos[r] == row + q_pos[row]) // same diagonally
+            || r - q_pos[r] == row - q_pos[row]  // same diagonal
+            || r + q_pos[r] == row + q_pos[row]) // same diagonal
             return false;
     }
 
