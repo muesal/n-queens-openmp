@@ -19,6 +19,7 @@ struct Queue {
     struct Node *head;
     struct Node *tail;
     int size;
+    omp_lock_t *lock;
 };
 
 
@@ -150,10 +151,17 @@ void queens_parallel(int n, struct Queue *queues[], int *solutions);
 int main(int argc, char **argv) {
     int n = argc > 1 ? atoi(argv[1]) : 3;
     
-    // TODO: add timer
+    // initialise timer
+    double start; 
+    double end; 
+    start = omp_get_wtime();
+
     int solutions = queens(n);
-    printf("Number of solutions with %d queens: %d\n",
+    printf("Number of solutions with %d queens and %d threads: %d\n",
         n, solutions);
+
+    end = omp_get_wtime();
+    printf("        elapsed time: %d", end - start);
     return 0;
 }
 
@@ -171,7 +179,6 @@ int queens(int n) {
     }
 
     // add all positions of the first queen to the first queue
-    // TODO: parallel for loop ?
     struct Board *board;
     for (int col = 0; col < n; col++) {
         // set queen in first row to column col
@@ -197,8 +204,9 @@ void queens_parallel(int n, struct Queue *queues[], int *solutions) {
     // shared variables
     int thread_count = omp_get_num_threads();
     int done = thread_count;
+    int sol = 0;
 
-#   pragma omp parallel num_threads(thread_count) reduction(+:solutions) // TODO: is the reduction correct?
+#   pragma omp parallel num_threads(thread_count) reduction(+:sol)
     {
         // private variables
         struct Board *board;
@@ -213,7 +221,7 @@ void queens_parallel(int n, struct Queue *queues[], int *solutions) {
         // This way all threads will exit the loop only if the queue is empty and no
         // thread is currently working on any thread
         while (done < thread_count || working) {
-#          pragma omp atomic(done) // TODO: How to define name of critical section?
+#          pragma omp atomic // atomic only on variable done
             done--;
 
             // work while there are still nodes in any of the queues
@@ -246,15 +254,15 @@ void queens_parallel(int n, struct Queue *queues[], int *solutions) {
             }
 
             working =false;
-#           pragma omp atomic(done)
+#           pragma omp atomic // atomic only on variable done
             done++;
 
         } // while(done < num_threads)
 
-        // TODO: reduction
-        *solutions += my_solutions;
+        sol += my_solutions;
     }
-    // TODO: parallel till here
+
+    *solutions = sol;
 }
 
 bool is_valid(struct Board *board) {
@@ -316,10 +324,12 @@ struct Queue * queue_create() {
     queue->tail = NULL;
     queue->head = NULL;
     queue->size = 0;
+    omp_init_lock(queue->lock);
     return queue;
 }
 
 void queue_delete(struct Queue *queue) {
+    omp_destroy_lock(queue->lock);
     free(queue);
 }
 
@@ -327,7 +337,7 @@ void queue_push(struct Queue *queue, struct Board **board) {
     // create new node
     struct Node *node = node_create(board);
     
-    // TODO: for now: lock over whole thing. Reread section about that in book, maybe there is a more efficient way
+    omp_set_lock(queue->lock);
     if (queue->size == 0) {
         // empty queue; set as heads and tail
         queue->head = node;
@@ -338,22 +348,25 @@ void queue_push(struct Queue *queue, struct Board **board) {
         queue->tail = node;
     }
     queue->size++;
+    omp_unset_lock(queue->lock);
 }
 
 bool queue_pop(struct Queue *queue, struct Node **node) {
+    bool non_empty = false;
 
-    // TODO: for now: lock over whole thing. Reread section about that in book, maybe there is a more efficient way
+    omp_set_lock(queue->lock);
     if (queue->size > 0) {
+        non_empty = true;
         // get the board of the first node, set pointer of head to second element
         queue->size--;
         *node = queue->head;
         queue->head = (*node)->next;
-
-        return true;
     }
-    return false;
+    omp_unset_lock(queue->lock);
+    return non_empty;
 }
 
+// TODO: let threads with even numbers only acces queues of even number? 
 bool queues_get_node(struct Queue **queues, int n, struct Node **node, int *queue) {
     bool non_empty = false;
 
