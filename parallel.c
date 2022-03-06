@@ -16,7 +16,7 @@ struct Node {
 struct Queue {
     struct Node *head;
     struct Node *tail;
-    int size; // TODO: append, depend or size?
+    int size;
 };
 
 
@@ -25,6 +25,14 @@ struct Queue {
  * @param column where the queen should be positioned
  */
 struct Board * board_create(int col);
+
+
+/**
+ * Method to delete a board
+ * 
+ * @param board 
+ */
+void board_delete(struct Board *board);
 
 
 /**
@@ -47,9 +55,25 @@ struct Node * node_create(struct Board **board);
 
 
 /**
+ * Method to delete a node and the corresponding board
+ * 
+ * @param node 
+ */
+void node_delete(struct Node *node);
+
+
+/**
  * Method to create an empty queue. Returns the created queue.
  */
-struct Queue queue_create();
+struct Queue * queue_create();
+
+
+/**
+ * Method to delete a queue
+ * 
+ * @param queue 
+ */
+void queue_delete(struct Queue *queue);
 
 
 /**
@@ -70,7 +94,20 @@ void queue_push(struct Queue* queue, struct Board **board);
  * 
  * @return false, if the queue is empty
  */
-bool queue_pop(struct Queue* queue, struct Board **board);
+bool queue_pop(struct Queue* queue, struct Node **node);
+
+/** 
+ * Method to get the next element from the last non-empty queue$
+ * in an array of queues.
+ * 
+ * @param queues array of queues to po from
+ * @param int number of queues in the array
+ * @param node where to put the received node
+ * @param q index of the queue from which the node was received
+ * 
+ * @return bool whether a non-empty queue could be found
+ */
+bool queues_get_node(struct Queue **queues, int n, struct Node **node, int *queue);
 
 
 /**
@@ -109,7 +146,7 @@ void queens_parallel(int n, struct Queue *queues[], int *solutions);
 
 
 int main(int argc, char **argv) {
-    int n = argc > 1 ? atoi(argv[1]) : 2;
+    int n = argc > 1 ? atoi(argv[1]) : 3;
     
     // TODO: add timer
     int solutions = queens(n);
@@ -126,9 +163,9 @@ Methods for the parallel tree search
 int queens(int n) {
 
     // initialise queues: one for every possible size of the board, except the full one
-    struct Queue *queues = (struct Queue *) calloc(n-1, sizeof(struct Queue));
+    struct Queue **queues = (struct Queue **) malloc((n-1) * sizeof( *queues));
     for (int i = 0; i < n-1; i++) {
-        queues[i] = queue_create();
+        queues[i] = queue_create(); 
     }
 
     // add all positions of the first queen to the first queue
@@ -139,12 +176,15 @@ int queens(int n) {
         board = board_create(col);
         
         // add configuration to queue
-        queue_push(&queues[0], &board);
-
+        queue_push(queues[0], &board);
     }
 
     int solutions = 0;
-    queens_parallel(n, &queues, &solutions);
+    queens_parallel(n, queues, &solutions);
+
+    // Free the queues, that does not work, why?
+    for (int i = 0; i < n-1; i++)
+        queue_delete(queues[i]);
 
     return solutions;
 }
@@ -153,83 +193,59 @@ int queens(int n) {
 void queens_parallel(int n, struct Queue *queues[], int *solutions) {
 
     int num_threads = 1; // TODO: get actual number of threads
-    int done = 0;  // Count done threads to prevent them from falling idle too early. as shared variable in method call
+    int done = num_threads;  // Count done threads to prevent them from falling idle too early. as shared variable in method call
 
     // TODO: parallel from here
     struct Board *board;
+    struct Node *node;
+    int q;
     int my_solutions = 0;
 
-    while (done < num_threads) {
-        // TODO: done--; at first iteration?
+    bool working = true;
 
+    // TODO: is the thread only stopping if al threads are done?
+    while (done < num_threads || working) {
+        done--;
 
-        // TODO: find queue to pop from
-        for (int q = n-2; q >= 0; q--) {
+        while (queues_get_node(queues, n-1, &node, &q)) {
 
-            if (queue_pop(queues[q], &board)) {
+            board = node->board;
 
-                printf("%d    ", q);
-                for (int row = 0; row < q+1; row++) {
-                    printf("%d ", board->pos[row]);
-                }
-                printf("\n");
-            
-                for (int col = 0; col < n; col++) {
-                    struct Board *new_board = (struct Board *) calloc(q + 3, sizeof(int));
-
-                    append(board, col, new_board);
-                    printf("    ", q);
-                    for (int row = 0; row < q + 2; row++) {
-                        printf("%d ", new_board->pos[row]);
-                    }
-                    printf("\n");
-
-                    if (is_valid(new_board)) {
-                        if (q >= n-2) 
-                            my_solutions++;
-                        else
-                            queue_push(queues[q+1], &new_board);
-                    }
-                    free(new_board);
-                }
-
-                break;
+            printf("%d    ", q);
+            for (int row = 0; row < q+1; row++) {
+                printf("%d ", board->pos[row]);
             }
+            printf("\n");
+        
+            for (int col = 0; col < n; col++) {
+                struct Board *new_board = (struct Board *) calloc(q + 3, sizeof(int));
+
+                append(board, col, new_board);
+                // printf("    ", q);
+                // for (int row = 0; row < q + 2; row++) {
+                //     printf("%d ", new_board->pos[row]);
+                // }
+                // printf("\n");
+
+                if (is_valid(new_board)) {
+                    if (q >= n-2) 
+                        my_solutions++;
+                    else
+                        queue_push(queues[q+1], &new_board);
+                }
+            }
+
+            node_delete(node);
         }
 
+        working =false;
         done++;
-    }
+
+    } // while(done < num_threads)
 
     // TODO: reduction
     *solutions += my_solutions;
     // TODO: parallel till here
-}
-
-// TODO: remove
-void queens_rec(int n, struct Board *board, int *solutions) {
-    
-    if (board->last >= n-1){
-        // base case: return 1
-        // noo need to validate since only valid solutions are passed on
-        (*solutions)++;
-    } else {
-        struct Board *new_pos = (struct Board *) calloc((board->last) + 3, sizeof(int));
-
-        for (int col = 0; col < n; col++) {
-            append(board, col, new_pos);
-
-            // printf("%d    ", col);
-            // for (int row = 0; row < (board->last) + 2; row++) {
-            //     printf("%d ", new_pos->pos[row]);
-            // }
-            // printf("\n");
-
-            if (is_valid(new_pos))
-                queens_rec(n, new_pos, solutions);
-        }
-
-        free(new_pos);
-    }
 }
 
 bool is_valid(struct Board *board) {
@@ -246,7 +262,7 @@ bool is_valid(struct Board *board) {
 
 
 /*
-Methods for the Boards
+Methods for the Board
 */
 
 struct Board * board_create(int col) {
@@ -256,6 +272,9 @@ struct Board * board_create(int col) {
     return board;
 }
 
+void board_delete(struct Board *board) {
+    free(board);
+}
 
 void append(struct Board *board, int col, struct Board *new_board) {
     int last = board->last;
@@ -278,15 +297,24 @@ struct Node * node_create(struct Board **board) {
     return node;
 }
 
-struct Queue queue_create() {
-    struct Queue queue;
-    queue.tail = NULL;
-    queue.head = NULL;
-    queue.size = 0;
+void node_delete(struct Node *node) {
+    board_delete(node->board);
+    free(node);
+}
+
+struct Queue * queue_create() {
+    struct Queue * queue = (struct Queue *) malloc(sizeof *queue);
+    queue->tail = NULL;
+    queue->head = NULL;
+    queue->size = 0;
     return queue;
 }
 
-void queue_push(struct Queue* queue, struct Board **board) {
+void queue_delete(struct Queue *queue) {
+    free(queue);
+}
+
+void queue_push(struct Queue *queue, struct Board **board) {
     // create new node
     struct Node *node = node_create(board);
     
@@ -303,20 +331,30 @@ void queue_push(struct Queue* queue, struct Board **board) {
     queue->size++;
 }
 
-
-bool queue_pop(struct Queue* queue, struct Board **board) {
+bool queue_pop(struct Queue *queue, struct Node **node) {
 
     // TODO: for now: lock over whole thing. Reread section about that in book, maybe there is a more efficient way
     if (queue->size > 0) {
         // get the board of the first node, set pointer of head to second element
         queue->size--;
-        struct Node *temp = queue->head;
-        *board = temp->board;
-        queue->head = temp->next;
-        free(temp);
+        *node = queue->head;
+        queue->head = (*node)->next;
 
         return true;
     }
-
     return false;
+}
+
+bool queues_get_node(struct Queue **queues, int n, struct Node **node, int *queue) {
+    bool non_empty = false;
+
+    for (int q = n-1; q >= 0; q--) {
+        if (queue_pop(queues[q], node)) {
+            *queue = q;
+            non_empty = true;
+            break;
+        }
+    }
+
+    return non_empty;
 }
