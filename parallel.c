@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <omp.h>
+
 
 struct Board {
     int last;   // index of the last queen that was set (len(pos)-1)
@@ -192,59 +194,66 @@ int queens(int n) {
 
 void queens_parallel(int n, struct Queue *queues[], int *solutions) {
 
-    int num_threads = 1; // TODO: get actual number of threads
-    int done = num_threads;  // Count done threads to prevent them from falling idle too early. as shared variable in method call
+    // shared variables
+    int thread_count = omp_get_num_threads();
+    int done = thread_count;
 
-    // TODO: parallel from here
-    struct Board *board;
-    struct Node *node;
-    int q;
-    int my_solutions = 0;
+#   pragma omp parallel num_threads(thread_count) reduction(+:solutions) // TODO: is the reduction correct?
+    {
+        // private variables
+        struct Board *board;
+        struct Node *node;
+        int q;
+        int my_solutions = 0;
 
-    bool working = true;
+        bool working = true;
 
-    // TODO: is the thread only stopping if al threads are done?
-    while (done < num_threads || working) {
-        done--;
 
-        while (queues_get_node(queues, n-1, &node, &q)) {
+        // While any thread is working, done is smaller than thread_count.
+        // This way all threads will exit the loop only if the queue is empty and no
+        // thread is currently working on any thread
+        while (done < thread_count || working) {
+#          pragma omp atomic(done) // TODO: How to define name of critical section?
+            done--;
 
-            board = node->board;
+            // work while there are still nodes in any of the queues
+            while (queues_get_node(queues, n-1, &node, &q)) {
 
-            printf("%d    ", q);
-            for (int row = 0; row < q+1; row++) {
-                printf("%d ", board->pos[row]);
-            }
-            printf("\n");
-        
-            for (int col = 0; col < n; col++) {
-                struct Board *new_board = (struct Board *) calloc(q + 3, sizeof(int));
+                board = node->board;
 
-                append(board, col, new_board);
-                // printf("    ", q);
-                // for (int row = 0; row < q + 2; row++) {
-                //     printf("%d ", new_board->pos[row]);
-                // }
-                // printf("\n");
-
-                if (is_valid(new_board)) {
-                    if (q >= n-2) 
-                        my_solutions++;
-                    else
-                        queue_push(queues[q+1], &new_board);
+                printf("%d    ", q);
+                for (int row = 0; row < q+1; row++) {
+                    printf("%d ", board->pos[row]);
                 }
+                printf("\n");
+            
+                for (int col = 0; col < n; col++) {
+                    struct Board *new_board = (struct Board *) calloc(q + 3, sizeof(int));
+
+                    // set the next queen to all columns of the respective row
+                    append(board, col, new_board);
+
+                    // check if the new queen is in a valid spot, and increase solution / push node
+                    if (is_valid(new_board)) {
+                        if (q >= n-2) 
+                            my_solutions++;
+                        else
+                            queue_push(queues[q+1], &new_board);
+                    }
+                }
+
+                node_delete(node);
             }
 
-            node_delete(node);
-        }
+            working =false;
+#           pragma omp atomic(done)
+            done++;
 
-        working =false;
-        done++;
+        } // while(done < num_threads)
 
-    } // while(done < num_threads)
-
-    // TODO: reduction
-    *solutions += my_solutions;
+        // TODO: reduction
+        *solutions += my_solutions;
+    }
     // TODO: parallel till here
 }
 
