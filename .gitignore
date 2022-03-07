@@ -52,3 +52,6 @@ Mkfile.old
 dkms.conf
 .vscode/launch.json
 .vscode/tasks.json
+scratch.txt
+experiments/nq.17781718.err
+submit-nq
