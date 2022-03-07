@@ -19,7 +19,7 @@ struct Queue {
     struct Node *head;
     struct Node *tail;
     int size;
-    omp_lock_t *lock;
+    omp_lock_t lock;
 };
 
 
@@ -119,9 +119,22 @@ bool queues_get_node(struct Queue **queues, int n, struct Node **node, int *queu
  * and summing the solutions that are reachable from there.
  * 
  * @param n: number of queens
+ * @param thread_count: number of threads to use
  * @return int, the number of solutions
  */
-int queens(int n);
+int queens(int n, int thread_count);
+
+/**
+ * While not all stacks are empty deque the fullest board available,
+ * create all its successors and add tha valid ones to the according
+ * stack.
+ * 
+ * @param n number of queens
+ * @param queues array of queues
+ * @param solutions pointer to the sum of found solutions
+ * @param thread_count number of threads to use
+ */
+void queens_parallel(int n, struct Queue *queues[], int *solutions, int thread_count);
 
 
 /**
@@ -136,32 +149,24 @@ int queens(int n);
  */
 bool is_valid(struct Board *board);
 
-/**
- * While not all stacks are empty deque the fullest board available,
- * create all its successors and add tha valid ones to the according
- * stack.
- * 
- * @param n number of queens
- * @param queues array of queues
- * @param solutions pointer to the sum of found solutions
- */
-void queens_parallel(int n, struct Queue *queues[], int *solutions);
-
 
 int main(int argc, char **argv) {
+    // get the number of queens and threads from the passed arguments
     int n = argc > 1 ? atoi(argv[1]) : 3;
+    int thread_count = argc > 2 ? atoi(argv[2]) : omp_get_num_threads();
+
     
     // initialise timer
     double start; 
     double end; 
     start = omp_get_wtime();
 
-    int solutions = queens(n);
+    int solutions = queens(n, thread_count);
     printf("Number of solutions with %d queens and %d threads: %d\n",
-        n, solutions);
+        n,  thread_count, solutions);
 
     end = omp_get_wtime();
-    printf("        elapsed time: %d", end - start);
+    printf("        elapsed time: %lf\n", end - start);
     return 0;
 }
 
@@ -170,7 +175,7 @@ int main(int argc, char **argv) {
 Methods for the parallel tree search
 */
 
-int queens(int n) {
+int queens(int n, int thread_count) {
 
     // initialise queues: one for every possible size of the board, except the full one
     struct Queue **queues = (struct Queue **) malloc((n-1) * sizeof( *queues));
@@ -189,7 +194,7 @@ int queens(int n) {
     }
 
     int solutions = 0;
-    queens_parallel(n, queues, &solutions);
+    queens_parallel(n, queues, &solutions, thread_count);
 
     // Free the queues, that does not work, why?
     for (int i = 0; i < n-1; i++)
@@ -199,10 +204,9 @@ int queens(int n) {
 }
 
 
-void queens_parallel(int n, struct Queue *queues[], int *solutions) {
+void queens_parallel(int n, struct Queue *queues[], int *solutions, int thread_count) {
 
     // shared variables
-    int thread_count = omp_get_num_threads();
     int done = thread_count;
     int sol = 0;
 
@@ -221,19 +225,24 @@ void queens_parallel(int n, struct Queue *queues[], int *solutions) {
         // This way all threads will exit the loop only if the queue is empty and no
         // thread is currently working on any thread
         while (done < thread_count || working) {
-#          pragma omp atomic // atomic only on variable done
-            done--;
 
             // work while there are still nodes in any of the queues
             while (queues_get_node(queues, n-1, &node, &q)) {
 
+                if (!working) {
+                    // thread was doing work before, so 
+                    working = true;
+    #               pragma omp atomic // atomic only on variable done
+                    done--;
+                }
+
                 board = node->board;
 
-                printf("%d    ", q);
-                for (int row = 0; row < q+1; row++) {
-                    printf("%d ", board->pos[row]);
-                }
-                printf("\n");
+                // printf("%d    ", q);
+                // for (int row = 0; row < q+1; row++) {
+                //     printf("%d ", board->pos[row]);
+                // }
+                // printf("\n");
             
                 for (int col = 0; col < n; col++) {
                     struct Board *new_board = (struct Board *) calloc(q + 3, sizeof(int));
@@ -253,9 +262,12 @@ void queens_parallel(int n, struct Queue *queues[], int *solutions) {
                 node_delete(node);
             }
 
-            working =false;
-#           pragma omp atomic // atomic only on variable done
-            done++;
+            if(working) {
+                // thread has done some work, thus its counter must has been increased at loop start
+#               pragma omp atomic // atomic only on variable done
+                done++;
+                working = false;
+            }
 
         } // while(done < num_threads)
 
@@ -324,12 +336,12 @@ struct Queue * queue_create() {
     queue->tail = NULL;
     queue->head = NULL;
     queue->size = 0;
-    omp_init_lock(queue->lock);
+    omp_init_lock(&(queue->lock));
     return queue;
 }
 
 void queue_delete(struct Queue *queue) {
-    omp_destroy_lock(queue->lock);
+    omp_destroy_lock(&(queue->lock));
     free(queue);
 }
 
@@ -337,7 +349,7 @@ void queue_push(struct Queue *queue, struct Board **board) {
     // create new node
     struct Node *node = node_create(board);
     
-    omp_set_lock(queue->lock);
+    omp_set_lock(&(queue->lock));
     if (queue->size == 0) {
         // empty queue; set as heads and tail
         queue->head = node;
@@ -348,13 +360,13 @@ void queue_push(struct Queue *queue, struct Board **board) {
         queue->tail = node;
     }
     queue->size++;
-    omp_unset_lock(queue->lock);
+    omp_unset_lock(&(queue->lock));
 }
 
 bool queue_pop(struct Queue *queue, struct Node **node) {
     bool non_empty = false;
 
-    omp_set_lock(queue->lock);
+    omp_set_lock(&(queue->lock));
     if (queue->size > 0) {
         non_empty = true;
         // get the board of the first node, set pointer of head to second element
@@ -362,7 +374,8 @@ bool queue_pop(struct Queue *queue, struct Node **node) {
         *node = queue->head;
         queue->head = (*node)->next;
     }
-    omp_unset_lock(queue->lock);
+
+    omp_unset_lock(&(queue->lock));
     return non_empty;
 }
 
@@ -374,6 +387,7 @@ bool queues_get_node(struct Queue **queues, int n, struct Node **node, int *queu
         if (queue_pop(queues[q], node)) {
             *queue = q;
             non_empty = true;
+            //printf("[%d, %d]\n", omp_get_thread_num(), q);
             break;
         }
     }
