@@ -103,18 +103,24 @@ bool queue_pop(struct Queue* queue, struct Node **node);
  * Method to get the next element from the last non-empty queue$
  * in an array of queues. Only every second queue is accessed, the
  * first one is the one with index (n - 1 - offset)
- * TODO Write about offset
+ *
  * @param queues array of queues to po from
  * @param int number of queues in the array
- * @param int 0 or 1, the offset
  * @param node where to put the received node
  * @param q index of the queue from which the node was received
  * 
  * @return bool whether a non-empty queue could be found
  */
-bool queues_get_node(struct Queue **queues, int n, int offset, struct Node **node, int *queue);
+bool queues_get_node(struct Queue **queues, int n, struct Node **node, int *queue);
 
-
+/**
+ * Method to 
+ * 
+ * @param queues array of struct Queues
+ * @param n size of array
+ * @return true if all queues are empty
+ * @return false otherwise
+ */
 bool queues_are_empty(struct Queue **queues, int n);
 
 /**
@@ -224,13 +230,11 @@ void queens_parallel(int n, struct Queue *queues[], int *solutions, int thread_c
         int offset = omp_get_thread_num() % 2;
 
 
-        // While any thread is working, done is smaller than thread_count.
-        // This way all threads will exit the loop only if the queue is empty and no
-        // thread is currently working on any thread
+        
         while (!queues_are_empty(queues, n-1)) {
 
             // work while there are still nodes in any of the queues
-            while (queues_get_node(queues, n-1, offset, &node, &q)) {
+            while (queues_get_node(queues, n-1, &node, &q)) {
 
                 board = node->board;
 
@@ -368,10 +372,10 @@ bool queue_pop(struct Queue *queue, struct Node **node) {
     return non_empty;
 }
 
-bool queues_get_node(struct Queue **queues, int n, int offset, struct Node **node, int *queue) {
+bool queues_get_node(struct Queue **queues, int n, struct Node **node, int *queue) {
     bool non_empty = false;
 
-    for (int q = n-1-offset; q >= 0; q-=2) {
+    for (int q = n-1; q >= 0; q--) {
         // threads with even number access only queues of even index. this should prevent memory overflow
         if (queue_pop(queues[q], node)) {
             *queue = q;
