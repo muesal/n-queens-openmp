@@ -99,19 +99,21 @@ void queue_push(struct Queue* queue, struct Board **board);
  */
 bool queue_pop(struct Queue* queue, struct Node **node);
 
+
 /** 
  * Method to get the next element from the last non-empty queue$
  * in an array of queues. Only every second queue is accessed, the
  * first one is the one with index (n - 1 - offset)
  *
  * @param queues array of queues to po from
- * @param int number of queues in the array
+ * @param n number of queues in the array
  * @param node where to put the received node
  * @param q index of the queue from which the node was received
  * 
  * @return bool whether a non-empty queue could be found
  */
 bool queues_get_node(struct Queue **queues, int n, struct Node **node, int *queue);
+
 
 /**
  * Method to 
@@ -122,6 +124,7 @@ bool queues_get_node(struct Queue **queues, int n, struct Node **node, int *queu
  * @return false otherwise
  */
 bool queues_are_empty(struct Queue **queues, int n);
+
 
 /**
  * Method that starts the recursive tree search by setting 
@@ -134,6 +137,7 @@ bool queues_are_empty(struct Queue **queues, int n);
  */
 int queens(int n, int thread_count);
 
+
 /**
  * While not all stacks are empty deque the fullest board available,
  * create all its successors and add tha valid ones to the according
@@ -141,10 +145,11 @@ int queens(int n, int thread_count);
  * 
  * @param n number of queens
  * @param queues array of queues
+ * @param n_q number of queues in the array
  * @param solutions pointer to the sum of found solutions
  * @param thread_count number of threads to use
  */
-void queens_parallel(int n, struct Queue *queues[], int *solutions, int thread_count);
+void queens_parallel(int n, struct Queue *queues[], int n_q, int *solutions, int thread_count);
 
 
 /**
@@ -189,7 +194,8 @@ int queens(int n, int thread_count) {
 
     // initialise queues: one for every possible size of the board, except the full one
     struct Queue **queues = (struct Queue **) malloc((n-1) * sizeof( *queues));
-    for (int i = 0; i < n-1; i++) {
+    int n_q = n/2;
+    for (int i = 0; i < n_q; i++) {
         queues[i] = queue_create(); 
     }
 
@@ -204,17 +210,17 @@ int queens(int n, int thread_count) {
     }
 
     int solutions = 0;
-    queens_parallel(n, queues, &solutions, thread_count);
+    queens_parallel(n, queues, n_q, &solutions, thread_count);
 
     // Free the queues, that does not work, why?
-    for (int i = 0; i < n-1; i++)
+    for (int i = 0; i < n_q; i++)
         queue_delete(queues[i]);
 
     return solutions;
 }
 
 
-void queens_parallel(int n, struct Queue *queues[], int *solutions, int thread_count) {
+void queens_parallel(int n, struct Queue *queues[], int n_q, int *solutions, int thread_count) {
 
     // shared variables
     int done = thread_count;
@@ -229,12 +235,10 @@ void queens_parallel(int n, struct Queue *queues[], int *solutions, int thread_c
         int my_solutions = 0;
         int offset = omp_get_thread_num() % 2;
 
-
-        
-        while (!queues_are_empty(queues, n-1)) {
+        while (!queues_are_empty(queues, n_q)) {
 
             // work while there are still nodes in any of the queues
-            while (queues_get_node(queues, n-1, &node, &q)) {
+            while (queues_get_node(queues, n_q, &node, &q)) {
 
                 board = node->board;
 
@@ -243,19 +247,38 @@ void queens_parallel(int n, struct Queue *queues[], int *solutions, int thread_c
                 //     printf("%d ", board->pos[row]);
                 // }
                 // printf("\n");
+                int size = board->last;
+                bool last_queen_1 = (size + 1 >= n - 1);
+                bool last_queen_2 = (size + 2 >= n - 1);
             
                 for (int col = 0; col < n; col++) {
-                    struct Board *new_board = (struct Board *) calloc(q + 3, sizeof(int));
+                    struct Board *new_board = (struct Board *) calloc(size + 3, sizeof(int));
 
                     // set the next queen to all columns of the respective row
                     append(board, col, new_board);
 
                     // check if the new queen is in a valid spot, and increase solution / push node
                     if (is_valid(new_board)) {
-                        if (q >= n-2) 
+                        if (last_queen_1) {
                             my_solutions++;
-                        else
-                            queue_push(queues[q+1], &new_board);
+                        } else {
+
+                            for (int col_2 = 0; col_2 < n; col_2++) {
+                                struct Board *new_board_2 = (struct Board *) calloc(size + 4, sizeof(int));
+
+                                // set the next queen to all columns of the respective row
+                                append(new_board, col_2, new_board_2);
+
+                                // check if the new queen is in a valid spot, and increase solution / push node
+                                if (is_valid(new_board_2)) {
+                                    if (last_queen_2) {
+                                        my_solutions++;
+                                    } else {
+                                        queue_push(queues[q+1], &new_board_2);
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
