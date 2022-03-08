@@ -5,12 +5,15 @@
 #include <omp.h>
 #include "parallel.h"
 
-// TODO: make n and queues global, evtl thread count
+int n;
+int thread_count;
+int n_q;
+struct Queue **queues;
 
 int main(int argc, char **argv) {
     // get the number of queens and threads from the passed arguments
-    int n = argc > 1 ? atoi(argv[1]) : 3;
-    int thread_count = argc > 2 ? atoi(argv[2]) : omp_get_num_threads();
+    n = argc > 1 ? atoi(argv[1]) : 3;
+    thread_count = argc > 2 ? atoi(argv[2]) : omp_get_num_threads();
 
     // initialise timer
     double start; 
@@ -18,7 +21,7 @@ int main(int argc, char **argv) {
     start = omp_get_wtime();
 
     // compute the number of solutions for n queens
-    int solutions = queens(n, thread_count);
+    int solutions = queens();
     printf("Number of solutions with %d queens and %d threads: %d\n",
         n,  thread_count, solutions);
 
@@ -33,15 +36,15 @@ int main(int argc, char **argv) {
 Methods for the parallel tree search
 */
 
-int queens(int n, int thread_count) {
+int queens() {
     if (n == 1) {
         // the follwoing structure does not allow n < 2.
         return 1;
     }
 
     // initialise queues: one for every second row (-> floor(n/2) queues)
-    struct Queue **queues = (struct Queue **) malloc((n / 2) * sizeof( *queues));
-    int n_q = n/2;
+    queues = (struct Queue **) malloc((n / 2) * sizeof( *queues));
+    n_q = n/2;
     for (int i = 0; i < n_q; i++) {
         queues[i] = queue_create(); 
     }
@@ -58,7 +61,7 @@ int queens(int n, int thread_count) {
 
     // start the parallel computation
     int solutions = 0;
-    queens_parallel(n, queues, n_q, &solutions, thread_count);
+    queens_parallel(n_q, &solutions);
 
     // Free the queues, TODO that does not work, why?
     for (int i = 0; i < n_q; i++)
@@ -68,7 +71,7 @@ int queens(int n, int thread_count) {
 }
 
 
-void queens_parallel(int n, struct Queue *queues[], int n_q, int *solutions, int thread_count) {
+void queens_parallel(int n_q, int *solutions) {
 
     // shared variables
     int done = thread_count;
@@ -81,9 +84,9 @@ void queens_parallel(int n, struct Queue *queues[], int n_q, int *solutions, int
         int q;
         int my_solutions = 0;
 
-        while (!queues_are_empty(queues, n_q)) {
+        while (!queues_are_empty()) {
             // work while there are still nodes in any of the queues
-            while (queues_get_node(queues, n_q, &node, &q)) {
+            while (queues_get_node(&node, &q)) {
 
                 /*printf("%d    ", q);
                 for (int row = 0; row < q+1; row++) {
@@ -94,13 +97,13 @@ void queens_parallel(int n, struct Queue *queues[], int n_q, int *solutions, int
 
                 if (size + 1 >= n - 1) {
                     // Only one more queen must be added
-                    my_solutions += create_successor_final(node->board, n);
+                    my_solutions += create_successor_final(node->board);
                 } else if (size + 2 >= n - 1) {
                     // exactly two more wueens must be added
-                    my_solutions += create_successor_two_final(node->board, n);
+                    my_solutions += create_successor_two_final(node->board);
                 } else {
                     // Add two queens and add the valid results to queue q + 1
-                    create_successor_two(queues[q+1], node->board, n);
+                    create_successor_two(q+1, node->board);
                 }
 
                 node_delete(node);
@@ -115,7 +118,7 @@ void queens_parallel(int n, struct Queue *queues[], int n_q, int *solutions, int
 }
 
 
-void create_successor_two(struct Queue *queue, struct Board *board, int n) {
+void create_successor_two(int q, struct Board *board) {
     int size = board->last;
 
     for (int col = 0; col < n; col++) {
@@ -136,7 +139,7 @@ void create_successor_two(struct Queue *queue, struct Board *board, int n) {
 
                 // check if the new queen is in a valid spot, if so push it
                 if (is_valid(new_board_2))
-                    queue_push(queue, &new_board_2);
+                    queue_push(queues[q], &new_board_2);
                 else
                     board_delete(new_board_2);
             }
@@ -147,7 +150,7 @@ void create_successor_two(struct Queue *queue, struct Board *board, int n) {
 }
 
 
-int create_successor_two_final(struct Board *board, int n) {
+int create_successor_two_final(struct Board *board) {
     int solutions = 0;
     int size = board->last;
 
@@ -158,14 +161,14 @@ int create_successor_two_final(struct Board *board, int n) {
         append(board, col, new_board);
 
         if (is_valid(new_board)) 
-            solutions += create_successor_final(new_board, n);
+            solutions += create_successor_final(new_board);
     }
     board_delete(new_board);
     return solutions;
 }
 
 
-int create_successor_final(struct Board *board, int n) {
+int create_successor_final(struct Board *board) {
     int size = board->last;
     
     struct Board *new_board = (struct Board *) calloc(size + 4, sizeof(int));
@@ -295,10 +298,10 @@ bool queue_pop(struct Queue *queue, struct Node **node) {
 }
 
 
-bool queues_get_node(struct Queue **queues, int n, struct Node **node, int *queue) {
+bool queues_get_node(struct Node **node, int *queue) {
     bool non_empty = false;
 
-    for (int q = n-1; q >= 0; q--) {
+    for (int q = n_q-1; q >= 0; q--) {
         // threads with even number access only queues of even index. this should prevent memory overflow
         if (queue_pop(queues[q], node)) {
             *queue = q;
@@ -312,8 +315,8 @@ bool queues_get_node(struct Queue **queues, int n, struct Node **node, int *queu
 }
 
 
-bool queues_are_empty(struct Queue **queues, int n) {
-    for (int q = 0; q < n; q++)
+bool queues_are_empty() {
+    for (int q = 0; q < n_q; q++)
         if (queues[q]->size > 0)
             return false;
 

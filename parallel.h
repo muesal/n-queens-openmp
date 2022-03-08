@@ -1,18 +1,11 @@
+
+/*
+Methods for the Board
+*/
+
 struct Board {
     int last;   // index of the last queen that was set (len(pos)-1)
     int pos[];  // list of positions of queens
-};
-
-struct Node {
-    struct Board *board;
-    struct Node *next;
-};
-
-struct Queue {
-    struct Node *head;
-    struct Node *tail;
-    int size;
-    omp_lock_t lock;
 };
 
 
@@ -40,6 +33,24 @@ void board_delete(struct Board *board);
  * @return struct Board* 
  */
 void append(struct Board * board, int col, struct Board *new_board);
+
+
+/*
+Methods for the Queue
+*/
+
+struct Node {
+    struct Board *board;
+    struct Node *next;
+};
+
+
+struct Queue {
+    struct Node *head;
+    struct Node *tail;
+    int size;
+    omp_lock_t lock;
+};
 
 
 /**
@@ -105,30 +116,30 @@ bool queue_pop(struct Queue* queue, struct Node **node);
  * 
  * @return bool whether a non-empty queue could be found
  */
-bool queues_get_node(struct Queue **queues, int n, struct Node **node, int *queue);
+bool queues_get_node(struct Node **node, int *queue);
 
 
 /**
- * Method to 
+ * Method to check whether all queues are empty
  * 
- * @param queues array of struct Queues
- * @param n size of array
  * @return true if all queues are empty
  * @return false otherwise
  */
-bool queues_are_empty(struct Queue **queues, int n);
+bool queues_are_empty();
 
+
+/*
+Methods for the parallel tree search
+*/
 
 /**
  * Method that starts the recursive tree search by setting 
  * the queen in the first row to all possible positions
  * and summing the solutions that are reachable from there.
  * 
- * @param n: number of queens
- * @param thread_count: number of threads to use
  * @return int, the number of solutions
  */
-int queens(int n, int thread_count);
+int queens();
 
 
 /**
@@ -136,24 +147,20 @@ int queens(int n, int thread_count);
  * create all its successors and add tha valid ones to the according
  * stack.
  * 
- * @param n number of queens
- * @param queues array of queues
  * @param n_q number of queues in the array
  * @param solutions pointer to the sum of found solutions
- * @param thread_count number of threads to use
  */
-void queens_parallel(int n, struct Queue *queues[], int n_q, int *solutions, int thread_count);
+void queens_parallel(int n_q, int *solutions);
 
 
 /**
  * Create all possible and valid successors with two more queens from the given board,
  * and push them two the given queue.
  * 
- * @param queue the queue to hich the successors should be pushed
+ * @param q index of the queue to push to
  * @param board for which the successors should be created
- * @param n number of queens
  */
-void create_successor_two(struct Queue *queue, struct Board *board, int n);
+void create_successor_two(int q, struct Board *board);
 
 
 /**
@@ -161,22 +168,20 @@ void create_successor_two(struct Queue *queue, struct Board *board, int n);
  * queens from the given board.
  * 
  * @param board for which the successors should be created
- * @param n number of queens
  * 
  * @return number of found solutions
  */
-int create_successor_two_final(struct Board *board, int n);
+int create_successor_two_final(struct Board *board);
 
 
 /**
  * Adds one more queen, if a solution can be returned this way returns 1, else 0.
  * 
  * @param board for which the successors should be created
- * @param n number of queens
  * 
  * @return 1 if there is a solution to be found, 0 else
  */
-int create_successor_final(struct Board *board, int n);
+int create_successor_final(struct Board *board);
 
 
 /**
