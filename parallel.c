@@ -103,7 +103,7 @@ bool queue_pop(struct Queue* queue, struct Node **node);
  * Method to get the next element from the last non-empty queue$
  * in an array of queues. Only every second queue is accessed, the
  * first one is the one with index (n - 1 - offset)
- * 
+ * TODO Write about offset
  * @param queues array of queues to po from
  * @param int number of queues in the array
  * @param int 0 or 1, the offset
