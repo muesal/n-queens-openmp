@@ -101,17 +101,21 @@ bool queue_pop(struct Queue* queue, struct Node **node);
 
 /** 
  * Method to get the next element from the last non-empty queue$
- * in an array of queues.
+ * in an array of queues. Only every second queue is accessed, the
+ * first one is the one with index (n - 1 - offset)
  * 
  * @param queues array of queues to po from
  * @param int number of queues in the array
+ * @param int 0 or 1, the offset
  * @param node where to put the received node
  * @param q index of the queue from which the node was received
  * 
  * @return bool whether a non-empty queue could be found
  */
-bool queues_get_node(struct Queue **queues, int n, struct Node **node, int *queue);
+bool queues_get_node(struct Queue **queues, int n, int offset, struct Node **node, int *queue);
 
+
+bool queues_are_empty(struct Queue **queues, int n);
 
 /**
  * Method that starts the recursive tree search by setting 
@@ -217,24 +221,16 @@ void queens_parallel(int n, struct Queue *queues[], int *solutions, int thread_c
         struct Node *node;
         int q;
         int my_solutions = 0;
-
-        bool working = true;
+        int offset = omp_get_thread_num() % 2;
 
 
         // While any thread is working, done is smaller than thread_count.
         // This way all threads will exit the loop only if the queue is empty and no
         // thread is currently working on any thread
-        while (done < thread_count || working) {
+        while (!queues_are_empty(queues, n-1)) {
 
             // work while there are still nodes in any of the queues
-            while (queues_get_node(queues, n-1, &node, &q)) {
-
-                if (!working) {
-                    // thread was doing work before, so 
-                    working = true;
-    #               pragma omp atomic // atomic only on variable done
-                    done--;
-                }
+            while (queues_get_node(queues, n-1, offset, &node, &q)) {
 
                 board = node->board;
 
@@ -262,14 +258,7 @@ void queens_parallel(int n, struct Queue *queues[], int *solutions, int thread_c
                 node_delete(node);
             }
 
-            if(working) {
-                // thread has done some work, thus its counter must has been increased at loop start
-#               pragma omp atomic // atomic only on variable done
-                done++;
-                working = false;
-            }
-
-        } // while(done < num_threads)
+        } // while(!queues_are_empty)
 
         sol += my_solutions;
     }
@@ -379,11 +368,11 @@ bool queue_pop(struct Queue *queue, struct Node **node) {
     return non_empty;
 }
 
-// TODO: let threads with even numbers only acces queues of even number? 
-bool queues_get_node(struct Queue **queues, int n, struct Node **node, int *queue) {
+bool queues_get_node(struct Queue **queues, int n, int offset, struct Node **node, int *queue) {
     bool non_empty = false;
 
-    for (int q = n-1; q >= 0; q--) {
+    for (int q = n-1-offset; q >= 0; q-=2) {
+        // threads with even number access only queues of even index. this should prevent memory overflow
         if (queue_pop(queues[q], node)) {
             *queue = q;
             non_empty = true;
@@ -393,4 +382,12 @@ bool queues_get_node(struct Queue **queues, int n, struct Node **node, int *queu
     }
 
     return non_empty;
+}
+
+bool queues_are_empty(struct Queue **queues, int n) {
+    for (int q = 0; q < n; q++)
+        if (queues[q]->size > 0)
+            return false;
+
+    return true;
 }
