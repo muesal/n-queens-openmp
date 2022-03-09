@@ -7,6 +7,5 @@ Compute the number of solutions run:
 >./parallel.o [n [thread_count]]
 
 E.g to copmute the number of solutions for 16 queens with 4 threads use one of the following:
->./parallel.o 16 4
+>./parallel.o 16 4 <br>
 >OMP_NUM_THREADS=4 ./parallel 16
->
