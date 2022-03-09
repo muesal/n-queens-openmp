@@ -13,7 +13,7 @@ struct Queue **queues;
 int main(int argc, char **argv) {
     // get the number of queens and threads from the passed arguments
     n = argc > 1 ? atoi(argv[1]) : 3;
-    thread_count = argc > 2 ? atoi(argv[2]) : omp_get_num_threads();
+    thread_count = argc > 2 ? atoi(argv[2]) : omp_get_max_threads();
 
     // initialise timer
     double start; 
@@ -38,7 +38,7 @@ Methods for the parallel tree search
 
 int queens() {
     if (n == 1) {
-        // the follwoing structure does not allow n < 2.
+        // the followoing structure does not allow n < 2.
         return 1;
     }
 
@@ -63,9 +63,10 @@ int queens() {
     int solutions = 0;
     queens_parallel(n_q, &solutions);
 
-    // Free the queues, TODO that does not work, why?
+    // Free the queues
     for (int i = 0; i < n_q; i++)
         queue_delete(queues[i]);
+    free(queues);
 
     return solutions;
 }
@@ -99,7 +100,7 @@ void queens_parallel(int n_q, int *solutions) {
                     // Only one more queen must be added
                     my_solutions += create_successor_final(node->board);
                 } else if (size + 2 >= n - 1) {
-                    // exactly two more wueens must be added
+                    // exactly two more queens must be added
                     my_solutions += create_successor_two_final(node->board);
                 } else {
                     // Add two queens and add the valid results to queue q + 1
