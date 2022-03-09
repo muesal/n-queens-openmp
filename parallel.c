@@ -122,9 +122,9 @@ void queens_parallel(int n_q, int *solutions) {
 void create_successor_two(int q, struct Board *board) {
     int size = board->last;
 
+    struct Board *new_board = (struct Board *) calloc(size + 4, sizeof(int));
     for (int col = 0; col < n; col++) {
         // create a new board
-        struct Board *new_board = (struct Board *) calloc(size + 4, sizeof(int));
 
         // set the next queen to all columns of the respective row
         append(board, col, new_board);
@@ -146,8 +146,8 @@ void create_successor_two(int q, struct Board *board) {
             }
         }
 
-        board_delete(new_board);
     }
+    board_delete(new_board);
 }
 
 

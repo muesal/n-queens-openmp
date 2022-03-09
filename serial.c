@@ -2,52 +2,25 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-
-/**
- * Method that starts the recursive tree search by setting 
- * the queen in the first row to all possible positions
- * and summing the solutions that are reachable from there.
- * 
- * @param n: number of queens
- * @return int, the number of solutions
- **/
-int queens(int n);
-
-
-/**
- * Recursive method that returns 1 if the given a is a valid
- * solution (base case) or sets one new queen and makes
- * a recursive call, if the part-solution is still valid. 
- * 
- * @param n: number of queens
- * @param a: part-solution
- * @param i: next row to set queen in
- * @return int, the number of solutions reachable from given a
- **/
-void queens_rec(int n, int q_pos[], int row, int *solutions);
-
-
-/**
- * Method that checks if a newly built part-solution is valid,
- * by checking whether queen at position i violates any of
- * the given constraints (only one queen per ro, column and
- * diagonally)
- * 
- * @param a: part-solution
- * @param i: row of last queen that was set
- * @return boolean whether the (part-)solution is valid
- **/
-bool is_valid(int q_pos[], int row);
+#include <time.h>
+#include "serial.h"
 
 
 int main(int argc, char **argv) {
     int n = argc > 1 ? atoi(argv[1]) : 2;
     
-    // TODO: add timer
+    // start timer
+    time_t start, end;
+    start = time(NULL);
+
+    // get number of solutions
     int solutions = queens(n);
     printf("Number of solutions with %d queens: %d\n",
         n, solutions);
+
+    // end timer
+    end = time(NULL);
+    printf("        elapsed time: %ld\n", end - start);
     return 0;
 }
 
@@ -73,14 +46,10 @@ void queens_rec(int n, int q_pos[], int row, int *solutions) {
         (*solutions)++;
     } else {
         for (int col = 0; col < n; col++) {
+            // set next queen
             q_pos[row] = col;
 
-            // printf("%d    ", col);
-            // for (int i = 0; i < row + 1; i++) {
-            //     printf("%d ", q_pos[i]);
-            // }
-            // printf("\n");
-
+            // Check if configuration is valid, if so pass on to next recursive call
             if (is_valid(q_pos, row))
                 queens_rec(n, q_pos, row + 1, solutions);
         }
