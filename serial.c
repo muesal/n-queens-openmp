@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <omp.h>
 #include "serial.h"
 
 
@@ -10,8 +11,9 @@ int main(int argc, char **argv) {
     int n = argc > 1 ? atoi(argv[1]) : 2;
     
     // start timer
-    time_t start, end;
-    start = time(NULL);
+    double start; 
+    double end; 
+    start = omp_get_wtime();
 
     // get number of solutions
     int solutions = queens(n);
@@ -19,8 +21,8 @@ int main(int argc, char **argv) {
         n, solutions);
 
     // end timer
-    end = time(NULL);
-    printf("        elapsed time: %ld\n", end - start);
+    end = omp_get_wtime();
+    printf("        elapsed time: %lf\n", end - start);
     return 0;
 }
 
