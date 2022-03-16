@@ -1,0 +1,17 @@
+\section{Experiments}
+
+We implement the algorithms of Section~\ref{sec:algorithms} in C, for details on the implementation refer to the \href{https://github.com/muesal/n-queens-openmp}{GitHub repository}.
+
+All experiments are performed on \href{https://www.hpc2n.umu.se/}{Kebnekaise}.
+For each configuration we execute the program 5 times and take the average running time of these runs.
+
+We have two different types of experiments.
+For the first one we choose a fixed number of queens, and compare the run times when using different numbers of threads.
+In order to have interesting test results, we choose the smallest $n$, for which the serial algorithm has a running time of about 10 minutes. 
+This is $n=16$, for which the serial algorithm (Algorithm~\ref{alg:queens_serial}) has a running time of 618 seconds on average.
+The number of threads runs from 1 to 28, which is the number of cores on Kebnekaise's compute nodes.
+
+For the second one, we set the number of threads and solve the problem for increasing numbers of queens.
+We choose 8 and 28 as the number of threads, as 8 turns out to be the number of threads with highest speedup in the first experiment.
+We range $n$ from 10 to 17.
+For less than 10 queens the problem can be solved within an instant, and 17 queens is the largest problem that can be solved within a reasonable amount of time with 8 threads.

@@ -1,0 +1,43 @@
+\section{Results}
+
+\paragraph{Increasing Number of Threads}
+Table~\ref{tab:inc_threads} shows the running times of the parallel algorithm with different numbers of threads on the 16-queens problem.
+The following formulas were used to compute the speedup and the efficiency:
+
+\[S = \frac{T_{serial}}{T_{parallel}},  \qquad E = \frac{S}{NumberOfThreads}.\]
+Both are computed based on the time the serial algorithm takes on the 16-queens problem, i.e., 618 seconds.
+
+\begin{table}[!ht]
+    \centering
+    \begin{tabular}{l | c | c | c | c | c | c | c | c | c | c}
+    \textbf{Threads}    & 1     & 2     & 4     & 8     & 12    & 16    & 20    & 24    & 28   \\ \hline
+    \textbf{Time}       & 1431  & 908   & 497   & 286   & 562   & 593   & 764   & 819   & 851  \\
+    \textbf{Speedup}    & 0.43  & 0.68  & 1.24  & 2.16  & 1.10  & 1.04  & 0.81  & 0.76  & 0.73 \\
+    \textbf{Efficiency} & 0.43  & 0.34  & 0.31  & 0.27  & 0.09  & 0.07  & 0.04  & 0.03  & 0.03 \\
+    
+    \end{tabular}
+    \caption{Running times in seconds, speedup and efficiency for different numbers of threads, solving the 16-queens problem}
+    \label{tab:inc_threads}
+\end{table}
+
+
+\paragraph{Increasing Number of Queens}
+Table~\ref{tab:inc_queens} shows the running times, speed up and efficiency for the serial algorithm and the parallel algorithm with 8 threads and 28 threads.
+The speedup and efficiency computed for the parallel algorithm are based on the serial running times displayed in the table.
+
+\begin{table}[!ht]
+    \centering
+    \begin{tabular}{l | c | c | c | c | c | c | c | c }
+    \textbf{Queens}     & 10   & 11   & 12   & 13   & 14   & 15   & 16   & 17   \\ \hline\hline
+    \textbf{Serial}     & 0.01 & 0.07 & 0.29 & 1.8  & 11   & 77   & 618  & 4721 \\ \hline
+    \textbf{8 Threads}  & 0.01 & 0.04 & 0.18 & 1.1  & 6.2  & 54   & 286  & 2004 \\
+    \textbf{Speedup}    & 1.43 & 1.97 & 1.61 & 1.65 & 1.80 & 1.44 & 2.16 & 2.03 \\
+    \textbf{Efficiency} & 0.18 & 0.25 & 0.20 & 0.21 & 0.23 & 0.18 & 0.27 & 0.25 \\ \hline
+    \textbf{28 Threads} & 0.03 & 0.11 & 0.53 & 3.2  & 17   & 147  & 851  & 4911 \\
+    \textbf{Speedup}    & 0.40 & 0.70 & 0.55 & 0.57 & 0.63 & 0.53 & 0.73 & 0.96 \\
+    \textbf{Efficiency} & 0.01 & 0.02 & 0.02 & 0.02 & 0.02 & 0.02 & 0.03 & 0.03 \\
+    
+    \end{tabular}
+    \caption{Running times in seconds for different numbers of Queens using the serial algorithms, the parallel one with 8 and 28 threads, as well as the speedup and efficiency for the parallel results.}
+    \label{tab:inc_queens}
+\end{table}

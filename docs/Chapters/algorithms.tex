@@ -1,0 +1,194 @@
+\section{Algorithms}
+\label{sec:algorithms}
+In this section we show the serial and the parallel algorithms that are used to compute the number of solutions to the n-queens problem.
+The two algorithms differ from each other but have some concepts in common.
+
+Both store the representation of a board with $i<n$ set queens as a one dimensional array of length $i$.
+At index $row$, $row<i$, the array holds the index of the column $col$, at which the queen is positioned.
+We call this array $q\_pos$.
+
+Both algorithms use some form of backtracking to traverse the nodes of the search tree.
+This means, we add another queen to a valid configuration.
+If this queen does not violate any of the constraints either, we continue by adding queens, until $n$ queens are placed on the board.
+If $n$ queens are placed, and the configuration is valid, we increase the number of found solutions by one.
+If the queen violates a constraint, we remove it again and set it in the next possible position.
+Whenever a queen violates a constraint or completes a solution (being the $n$-th queen set), we replace that queen to another column in the same row.
+If no other column is available, we remove the queen and re-position the queen in the preceding row.
+
+In order to inspect whether a newly set queen violates the constraints, both algorithms call the function shown in Algorithm~\ref{alg:is_valid}.
+This function checks whether the last set queen is in the same column or diagonal as any queen on a higher row.
+Since queens are set row-wise, they cannot be in the same row as another queen.
+Further, since the method is called for every queen that is added, only the newly set queen must be checked.
+The other queens are assumed to not violate any constraints with each other.
+
+\begin{algorithm}[H]
+\caption{Algorithm to validate a configuration}
+\label{alg:is_valid}
+\begin{algorithmic}[1]
+    \Function{isValid}{q\_pos}
+        \State row $\gets$ q\_pos.size - 1
+        \State col $\gets$ q\_pos[row]
+        \For {r $\in \{0, 1, ..., row\}$}
+            \If{q\_pos[r] = col \textbf{or}  \par
+            \hskip\algorithmicindent r - q\_pos[r] = row - col \textbf{or}  \par \hskip\algorithmicindent r + q\_pos[r] = row + col}
+                \State\Return{false}
+            \EndIf
+        \EndFor
+        \State\Return{true}
+    \EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+
+\subsection{Serial}
+The serial algorithm is a recursive form of a depth-first tree search with pruning.
+Algorithm~\ref{alg:queens_serial} shows the pseudo-code for this algorithm.
+
+\begin{algorithm}[H]
+\caption{Serial algorithm for n-queens tree-search}
+\label{alg:queens_serial}
+\begin{algorithmic}[1]
+    \Function{Queens}{n, row, q\_pos}
+        \If{row $>=$ n}
+            \State\Return{1}
+        \EndIf
+        
+        \State solutions $\gets$ 0
+        \For {col $\in \{0, 1, ..., $n$-1\}$}
+            \State q\_pos\_new $\gets$ q\_pos.apped(col)
+            \If{isValid(q\_pos\_new)}
+                \State solutions $\gets$ solutions + \Call{Queens}{n, row + 1, q\_pos\_new}
+            \EndIf
+        \EndFor
+        \State\Return{solutions}
+    \EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+The procedure gets the number of queens $n$, the index of the next queen that should be set, $row$, and the current configuration of the board, $q\_pos$.
+
+At each recursive call, the algorithm first checks if the board is full (line 2).
+If so, it returns 1 since one valid solution was found.
+Otherwise the next queen is set to all possible values (line 6).
+If the resulting configuration is still a valid solution, i.e., the new queen does not violate any of the constraints, the process is recursively repeated and the number of solutions that can be reached from this configuration is added to the total number of solutions.
+
+\subsection{Parallel}
+The main challenge when transforming this algorithm into a parallel one is to ensure that all threads will get a similar workload.
+One is tempted to produce a number of configurations equal to the number of threads, and then split them between the threads, such that they can work in parallel on the resulting subtrees.
+This approach could lead to some threads falling idle long before the last thread finishes, as there is no way to know in advance how many nodes of the subtree can be pruned away.
+Thus, before parallelizing the algorithm we transform it a little by using a queue instead of recursive calls.
+
+The queue is initialized by pushing all $n$ configurations with only one queen.
+The algorithm shown in Algorithm~\ref{alg:queens_parallel} then pops one $q\_pos$ from the queue, creates all its successors, and pushes the valid ones to the queue again.
+
+\begin{algorithm}[H]
+\caption{Parallel algorithm for n-queens tree-search}
+\label{alg:queens_parallel}
+\begin{algorithmic}[1]
+    \Function{QueenParallel}{n}
+    \State queue $\gets$ initializeQueue()
+    \For {col $\in \{0, 1, ..., $n$-1\}$}
+        \State q\_pos[0] $\gets$ col
+        \State queue.push(q\_pos)
+    \EndFor
+    \State
+    \State solutions $\gets$ 0
+    \While{queue.isNotEmpty()}
+        \State q\_pos $\gets$ queue.pop()
+        
+        \For {col $\in \{0, 1, ..., $n$-1\}$}
+            \State q\_pos\_new $\gets$ q\_pos.apped(col)
+            \If{isValid(q\_pos\_new)}
+                \If{q\_pos\_new.isComplete()}
+                    \State solutions $\gets$ solutions + 1
+                \Else
+                    \State queue.push(q\_pos\_new)
+                \EndIf
+            \EndIf
+        \EndFor
+    \EndWhile
+    \State\Return{solutions}
+    \EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+When using multiple threads, the queue is shared between them.
+Any operation of the queue, i.e., push or pop elements, is a critical section.
+Therefore, and since the queue is shared between the threads, parallelization could not bring any improvement compared to the serial algorithm.
+All threads would repeatedly and concurrently access the queue, which would result in a nearly sequential computation.
+
+Further, depending on the order in which the nodes are retrieved from the queue and the size of the problem ($n$), this approach can easily lead to memory overflow.
+One solution to this would be to use a priority queue, where solutions with more queens are popped first.
+However, the expected running time to add elements to priority queues is higher than for normal queues.
+Regarding that operations on the queue are critical sections that can only be executed by one thread at a time, the time for single operations on them should be kept minimal.
+
+To solve both the problem of overflowing memory and repeated access to the same critical section, we introduce an array of queues, called $queues$.
+This array has length $n-1$, and at every position $i$ it holds a queue containing only configurations with $i$ set queens.
+When a thread needs a new configuration to work on, it pops the thread from the non-empty queue with highest index, e.g., $q$.
+It then creates is successors and pushes them to the queue with index $q+1$.
+Every queue is protected with its own lock, thus different threads can access different queues simultaneously.
+
+The time to process one node this way is very fast, as only $n$ successors are created, validated and pushed.
+Therefore, every thread produces a lot of new nodes very fast, and the memory still overflows eventually.
+
+We therefore reduce the size of $queues$ by half.
+Now, the queue at index $i$ contains all configurations with $2*i$ queens.
+When a thread gets a new configuration it must thus produce all valid successors of the node that have two additional queens.
+This forces the thread to be busy with one node for a little longer, while it reduces the number of stored configurations and accesses to the queues.
+It still retains the benefit, that the work is split in small enough pieces to prevent threads from being idle for long periods.
+
+Because we want $queues$ to be shared among the threads, we use OpenMP.
+Algorithm~\ref{alg:queens_parallel_final} shows the pseudo code of the final implementation.
+
+\begin{algorithm}[H]
+\caption{Parallel algorithm for n-queens tree-search}
+\label{alg:queens_parallel_final}
+\begin{algorithmic}[1]
+    \Function{QueenParallel}{n}
+    \State \textbf{global} queues[]
+    \For {col $\in \{0, 1, ..., $n$-1\}$}
+        \State queues[i] $\gets$ initializeQueue() 
+    \EndFor
+    \State
+   
+    \For {col $\in \{0, 1, ..., $n$-1\}$}
+        \State q\_pos[0] $\gets$ col
+        \State queue[0].push(q\_pos)
+    \EndFor
+    \State
+    \State solutions $\gets$ 0
+    \State \#pragma omp parallel reduction(+:solutions)
+    \State\{
+    \State my\_sol $\gets$ 0
+    \While{noQueueEmpty(queues)}
+        \State q\_pos, i\_queue $\gets$ queue.pop()
+        \If{q\_pos.size $<$ n}
+            \State my\_sol $\gets$ my\_sol + append1Final(q\_pos)
+        \ElsIf{q\_pos.size + 1$<$ n}
+            \State my\_sol $\gets$ my\_sol + append2Final(q\_pos)
+        \Else
+            \State append2(q\_pos, queues[i\_queue+1])
+        \EndIf
+    \EndWhile
+    \State solutions $\gets$ solutions + my\_sol
+    \State\}
+    
+    \State\Return{solutions}
+    \EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+
+On lines 1 to 3 we initialise the array of queues, which contains n/2 queues for n queens.
+On lines 5 to 7 we create all configurations with only one queen and add them to the first queue.
+After this, we can start the parallel computation.
+Starting from line 10, each thread pops configurations from the non-empty queue with highest index ($i\_queue$) while none of the queues is empty.
+For every configuration there are three possibilities:
+Either $q\_pos$ lacks exactly one or two queens to be a final configuration.
+If so we add those queens and add the number of solutions which are produced this way to the private variable $my\_sol$ (on lines 16 and 18, respectively).
+If more queens are still missing, we add two more, and push the resulting valid configurations to the next queue (line 20).
+
+When all queues are empty, the number of solutions the thread found ($my\_sol$) is added to the total number of solutions.
+This can be done by using the OpenMP built-in reduction, which is the only critical section apart from the push and pop operations on the queues.
+
+In the next section, we show how we test Algorithms~\ref{alg:queens_serial} and~\ref{alg:queens_parallel_final}.

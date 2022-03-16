@@ -1,0 +1,49 @@
+\section{Discussion}
+
+\paragraph{Increasing Number of Threads}
+When fixing the number of queens to 16, and increasing the number of threads, we see that the best running time is achieved with 8 threads, with a speedup of 2.16 and an efficiency of 0.27.
+The best efficiency is 0.43, achieved with only one thread.
+Surprisingly, more threads do not lead to faster running times with our algorithm.
+
+\paragraph{Increasing Number of Queens}
+In order to verify whether this holds only for the 16-queens problem, or for any number of queens, we further analyse the running times of 8 and 28 threads on instances of different sizes.
+The result is, that 8 threads in fact yield better running times than 28 threads on all tested problem instances.
+Interestingly, the efficiency is more or less constant for both numbers of threads.
+This could be an indicator that 8 threads will perform better on any input instance, even for very large ones.
+However, it is not in the scope of this assignment to test on problems where the computational time is more than one and a half hours.
+
+\paragraph{}
+The performance of the parallel algorithm is not as good as expected.
+This is supposedly due to the repeated access to the shared queues.
+With 16 queens, the algorithm maintains 8 queues.
+Thus, with 28 threads, there will always be at least one queue which more than three threads are operating on, i.e., that are pushing new nodes to the queue.
+Then, using the queues just introduces a lot of overhead.
+
+That the parallel algorithm has a lot of overhead can also be seen from the fact that the speedup is lowest with one thread.
+The computation of the parallel algorithm with one thread takes more than double the amount of time compared to the serial algorithm.
+
+There is one other fact that prevents the computation from becoming faster with more threads:
+The way the algorithm is implemented, no thread becomes idle before the queue is empty.
+However, with 16 queens the first queue contains 16 nodes after initialisation.
+Thus, the first 16 threads to access the queues will get a node and operate on it.
+Depending on how long it takes those threads to push new nodes to the next queue, and the other threads to check the queues for emptiness, it may be that the rest of the threads become idle immediately.
+This should be prevented by adding a variable that holds the number of threads which are currently not working on any nodes.
+If this counter is equal to the number of nodes, and the queue is empty at the same time, then all the work is done and the threads may become idle.
+
+Quick experiments with this modification showed, that it enhances the performance on the 16-queens problem for more than 8 threads, but only slightly.
+The remaining factor that the threads all repeatedly access the same critical section weighs in a lot more.
+One would have to come up with a different algorithm.
+For example, the number of queues could be even further decreased.
+This could be done such that configurations are only pushed to a queue after adding more than two queens.
+Another approach could be to have a fixed number of queues, say three, for every number of queens, and determine how many queens must be added to a configuration at runtime.
+This would lead to the threads doing more work before accessing the critical sections of the queues, and accessing them less often.
+However, the bottleneck of accessing the same critical section still remains.
+
+Another approach that uses little to no critical sections could be to use only one queue which is initialised to contain all configurations with two queens.
+For $n$ queens, there are $(n-1)(n-2)$ valid configurations like this\footnote{For the first and the last queen in the first row, $n-2$ spots are valid in the second row. For the other queens $n-3$ spots are valid in the second row: $2*(n-2) + (n-2)(n-3)=(n-2)(n-1)$}.
+For large $n$, this means that there are multiple of those for every thread, even when large numbers of threads are used.
+Then, the threads could iterate over them and perform the serial algorithm on them.
+This would reduce the overhead from maintaining the queues, but still split the work evenly enough between the threads.
+
+
+

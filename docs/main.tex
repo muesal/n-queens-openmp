@@ -1,0 +1,43 @@
+\documentclass[10pt]{article}
+\usepackage{amsmath}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{subcaption}
+\usepackage{graphicx}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+\floatname{algorithm}{Algorithm}
+\usepackage{hyperref}
+\usepackage[capitalise, noabbrev]{cleveref}
+\newcommand{\todo}[1]{{\color{red}#1}}
+
+
+%% ----------------------------------------------------------------
+
+\title{
+    Parallel Tree Search for the $n$-Queens Problem \\
+    \vspace{3em}
+    {\large Umeå University \\
+    Parallel Programming (5DV152)}
+    \vspace{3em}
+}
+\author{Salome Müller, mcs21smr}
+\date{\today}
+
+\begin{document}
+
+%% Make the title
+\maketitle
+\thispagestyle{empty}
+
+\pagebreak
+\pagenumbering{arabic} 
+
+%% Include all chapters
+\input{./Chapters/introduction}
+\input{./Chapters/algorithms}
+\input{./Chapters/experiments}
+\input{./Chapters/results}
+\input{./Chapters/discussion}
+\input{./Chapters/conclusion}
+
+\end{document}

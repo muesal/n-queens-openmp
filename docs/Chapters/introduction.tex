@@ -1,0 +1,12 @@
+\section*{Introduction}
+In this work we develop and test a parallel algorithm to count the number of solutions for the $n$-queens problem.
+This problem is about setting $n$ queens on a $n\times n$ chess-board, such that no queen is in the same row, column or diagonal as any other queen.
+Such solutions can be found with a tree search.
+The nodes of this tree are configurations of the board the root node is the empty board.
+The children of a node always contain the same configuration of the board as the node itself, but with a new queen in the first empty row.
+In order to decrease the branching factor, sub-trees are pruned off as soon as one queen on the board violates any of the given constraints, i.e., is in the same row, column or diagonal as another queen.
+
+Section 1 shows the algorithms that were used.
+We first talk about the sequential approach, before we go into detail on how to construct the parallel algorithm.
+Section 2 introduces the experiments with which we tested the algorithms.
+The results are shown in Section 4, and discussed in Section 5.
