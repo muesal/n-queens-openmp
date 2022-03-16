@@ -84,10 +84,16 @@ void queens_parallel(int n_q, int *solutions) {
         struct Node *node;
         int q;
         int my_solutions = 0;
+        bool working = true;
 
-        while (!queues_are_empty()) {
+        while (done < thread_count || working) {
             // work while there are still nodes in any of the queues
             while (queues_get_node(&node, &q)) {
+                if (!working) {
+                    working = true;
+#                   pragma omp atomic
+                    done--;
+                }
 
                 /*printf("%d    ", q);
                 for (int row = 0; row < q+1; row++) {
@@ -108,6 +114,12 @@ void queens_parallel(int n_q, int *solutions) {
                 }
 
                 node_delete(node);
+            }
+
+            if(working) {
+                working = false;
+#               pragma omp atomic
+                done++;
             }
 
         } // end while(!queues_are_empty)
